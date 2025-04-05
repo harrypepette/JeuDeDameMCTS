@@ -1,28 +1,27 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
-import os
-import sys
 
 class ChatInterface:
-    def __init__(self):
+    def __init__(self, restart_callback):
         """
         Initialise l'interface de chat.
+        :param restart_callback: Fonction à appeler pour redémarrer le jeu.
         """
         self.root = tk.Tk()
         self.root.title("Chat - Jeu de Dames")
 
         # Zone de texte pour afficher les messages
         self.chat_display = ScrolledText(self.root, state='disabled', wrap='word', height=20, width=50)
-        self.chat_display.grid(row=0, column=0, padx=10, pady=10)
+        self.chat_display.grid(row=0, column=0, padx=10, pady=10, columnspan=2)
 
         # Zone de saisie pour envoyer des messages (facultatif)
         self.entry = tk.Entry(self.root, width=40)
         self.entry.grid(row=1, column=0, padx=10, pady=5)
         self.entry.bind("<Return>", self.send_message)
 
-        # Bouton pour relancer le jeu
-        self.restart_button = tk.Button(self.root, text="Relancer le jeu", command=self.restart_game)
-        self.restart_button.grid(row=2, column=0, padx=10, pady=10)
+        # Bouton "Restart Game"
+        self.restart_button = tk.Button(self.root, text="Restart Game", command=restart_callback)
+        self.restart_button.grid(row=1, column=1, padx=10, pady=5)
 
     def add_message(self, message):
         """
@@ -42,13 +41,6 @@ class ChatInterface:
         if message:
             self.add_message(f"Vous: {message}")
             self.entry.delete(0, tk.END)
-
-    def restart_game(self):
-        """
-        Relance le jeu en redémarrant le script.
-        """
-        self.root.destroy()  # Ferme la fenêtre actuelle
-        os.execl(sys.executable, sys.executable, *sys.argv)  # Redémarre le script
 
     def run(self):
         """
