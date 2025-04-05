@@ -34,6 +34,13 @@ class Jeu:
 
         pygame.quit()
 
+    def stop(self):
+        """
+        Méthode pour arrêter le jeu.
+        """
+        print("Arrêt du jeu.")
+
+
     def on_draw(self):
         """
         Méthode appelée pour dessiner l'écran.
