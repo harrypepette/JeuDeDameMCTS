@@ -42,7 +42,3 @@ if __name__ == "__main__":
     ]
     instance = Instance(positions_initiales)
     instance.run_to_the_end()
-
-##if __name__ == "__main__":
-    
-   ## main()
