@@ -48,9 +48,9 @@ class Dame(Pion):
                 else:
                     break
         return mouvements
-
+        
     def check_manger(self, plateau):
-        """
+        """"
         Vérifie si la dame peut manger un pion adverse sur toutes les diagonales.
         Retourne une liste des cases derrière les pions adverses capturables.
         :param plateau: Le plateau de jeu.
@@ -101,7 +101,7 @@ class Dame(Pion):
                     break
                 pion = plateau.get_pion(x, y)
                 if pion:
-                    print(f"Pion trouvé à ({x}, {y}), couleur : {pion.couleur}, dame couleur : {self.couleur}")
+                    #print(f"Pion trouvé à ({x}, {y}), couleur : {pion.couleur}, dame couleur : {self.couleur}")
                     if pion.couleur != self.couleur:
                         pion_trouve = True
                         # Continuer à explorer la diagonale pour trouver toutes les cases libres derrière
@@ -112,7 +112,7 @@ class Dame(Pion):
                                 break
                             if plateau.get_pion(x, y) is None:
                                 cases.append((x, y))
-                                print(f"Case possible : ({x}, {y})")
+                               # print(f"Case possible : ({x}, {y})")
                             else:
                              break
                     break
@@ -132,3 +132,6 @@ class Dame(Pion):
         if 0 <= case_derriere[0] < 8 and 0 <= case_derriere[1] < 8:
             return case_derriere
         return None
+    
+    def copier(self):
+        return Dame(self.couleur, self.position[:])

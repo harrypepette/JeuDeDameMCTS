@@ -1,48 +1,25 @@
 from Jeu import Jeu
-from ChatInterface import ChatInterface
+
 import sys
-from Instance import Instance
-class TerminalToChat:
-    """
-    Redirige les messages du terminal vers l'interface de chat.
-    """
-    def __init__(self, chat_interface):
-        self.chat_interface = chat_interface
 
-    def write(self, message):
-        if message.strip():  # Ignorer les lignes vides
-            self.chat_interface.add_message(message)
-
-    def flush(self):
-        pass  # Nécessaire pour rediriger correctement les flux
+from IA import IA  # Import the IA class
+import argparse
 
 def main():
-    # Créer l'interface de chat
-    chat = ChatInterface()
+    parser = argparse.ArgumentParser(description='Jeu de Dames avec IA')
+    parser.add_argument('--ia', action='store_true', help='Activer l\'IA')
+    parser.add_argument('--couleur-ia', choices=['blanc', 'noir'], default='noir',
+                        help='Couleur de l\'IA (blanc ou noir)')
+    parser.add_argument('--iterations', type=int, default=1000,
+                        help='Nombre d\'itérations pour l\'algorithme MCTS')
+    parser.add_argument('--exploration', type=float, default=0.7,
+                        help='Constante d\'exploration pour UCT')
+    
+    args = parser.parse_args()
 
-    # Rediriger les messages du terminal vers le chat
-    sys.stdout = TerminalToChat(chat)
-
-    # Lancer le jeu dans un thread séparé pour ne pas bloquer l'interface
-    from threading import Thread
-    def run_game():
-        jeu = Jeu()
-        jeu.run()
-
-    game_thread = Thread(target=run_game)
-    game_thread.start()
-
-    # Lancer l'interface de chat
-    chat.run()
+    print("Lancement du jeu graphique")
+    jeu = Jeu(ia_active=args.ia, ia_couleur=args.couleur_ia, ia_iterations=args.iterations)
+    jeu.run()
 
 if __name__ == "__main__":
-    positions_initiales = [
-        ("blanc", (1, 5)), ("blanc", (3, 5)), ("blanc", (5, 5)), ("blanc", (7, 5)),
-        ("noir", (0, 2)), ("noir", (2, 2)), ("noir", (4, 2)), ("noir", (6, 2))
-    ]
-    instance = Instance(positions_initiales)
-    instance.run_to_the_end()
-
-##if __name__ == "__main__":
-    
-   ## main()
+    main()

@@ -1,6 +1,7 @@
 import pygame
 from Pion import Pion
 from Dame import Dame
+import copy
 
 class Plateau:
     def __init__(self):
@@ -138,7 +139,6 @@ class Plateau:
                 pion_milieu = self.get_pion(*milieu)
                 if pion_milieu and pion_milieu.couleur != pion.couleur and self.get_pion(nx, ny) is None:
                     cases.append((nx, ny))
-                    print(f"Capture possible pour pion à ({x}, {y}) vers ({nx}, {ny})")
         return cases
 
     def peut_encore_manger(self, pion):
@@ -208,3 +208,29 @@ class Plateau:
             return True, gagnant
 
         return False, None
+    
+    def copier(self):
+        # Créer une nouvelle instance de Plateau
+        plateau_copie = Plateau()
+        # Copier les cases (pions) manuellement
+        plateau_copie.cases = [list(ligne) for ligne in self.cases]  # Copie superficielle des listes
+        # Si les pions sont des objets complexes, les copier aussi
+        for i in range(len(self.cases)):
+            for j in range(len(self.cases[i])):
+                if self.cases[i][j] is not None:
+                    plateau_copie.cases[i][j] = self.cases[i][j].copier()  # Copie des pions
+        # Ne pas copier self.jeu ou d'autres références à des objets Pygame
+        return plateau_copie
+    
+    def est_capture(self, pion, arrivee):
+    # Vérifie si le mouvement vers arrivee est une capture
+        cases_capture = self.cases_fin_manger(pion)
+        return arrivee in cases_capture
+    
+    def devient_dame(self, pion, arrivee):
+    # Vérifie si le pion devient une dame en atteignant arrivee
+        if pion.couleur == "blanc" and arrivee[1] == 0:  # Ligne 0 pour les blancs
+            return True
+        if pion.couleur == "noir" and arrivee[1] == 7:  # Ligne 7 pour les noirs
+            return True
+        return False

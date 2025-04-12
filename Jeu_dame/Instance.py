@@ -1,3 +1,5 @@
+
+""""
 import random
 from Plateau import Plateau
 from Joueur import Joueur
@@ -5,10 +7,10 @@ from Mouvement import Mouvement  # Import the Mouvement class or function
 from Pion import Pion  # Import the Pion class or function
 class Instance:
     def __init__(self, positions_initiales):
-        """
+        
         Initialise une instance du jeu avec des positions spécifiques.
         :param positions_initiales: Liste des positions des pions (format : [(couleur, (x, y)), ...]).
-        """
+        
         self.plateau = Plateau()
         self.plateau.cases = [[None for _ in range(8)] for _ in range(8)]  # Réinitialiser le plateau
         for couleur, position in positions_initiales:
@@ -21,9 +23,9 @@ class Instance:
         self.joueur_actuel = 0
 
     def run_to_the_end(self):
-        """
+        
         Lance le jeu avec des mouvements aléatoires jusqu'à ce qu'un joueur gagne.
-        """
+        
         while True:
             joueur_couleur = self.joueurs[self.joueur_actuel].couleur
             pions = [
@@ -58,3 +60,4 @@ class Instance:
 
             # Passer au joueur suivant
             self.joueur_actuel = 1 - self.joueur_actuel
+"""

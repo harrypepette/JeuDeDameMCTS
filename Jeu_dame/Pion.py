@@ -40,3 +40,5 @@ class Pion:
         elif self.couleur == "noir":
             return dy > 0  # Les pions noirs avancent vers le bas
         return False
+    def copier(self):
+        return Pion(self.couleur, self.position[:])

@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import os
@@ -55,3 +56,4 @@ class ChatInterface:
         Lance la boucle principale de l'interface.
         """
         self.root.mainloop()
+        
