@@ -21,7 +21,7 @@ def main():
         couleur_simulee = "noir"
     
     
-    jeu = Jeu(couleur_simulee)
+    jeu = Jeu(couleur_simulee, iterations=5000)
     jeu.run()
 
 if __name__ == "__main__":

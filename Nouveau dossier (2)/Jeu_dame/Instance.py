@@ -20,136 +20,146 @@ class SimulationAvancee:
                 self.plateau.cases[y][x] = Pion("noir", position)
         self.joueurs = [Joueur("blanc"), Joueur("noir")]
         self.joueur_actuel = 0
-
+        
     def evaluer_mouvement(self, pion, mouvement, forcer_manger=False):
-        """
-        Évalue la qualité d'un mouvement selon plusieurs critères améliorés.
-        Plus le score est élevé, meilleur est le coup.
-        """
         score = 0
         x_depart, y_depart = pion.position
         x_arrivee, y_arrivee = mouvement
-        
-        # 1. Prioriser les captures (score élevé)
+    
+    # 1. Prioriser les captures (score élevé)
         if abs(x_arrivee - x_depart) >= 2 and abs(y_arrivee - y_depart) >= 2:
-            score += 100  # Score élevé pour les captures
-            
-            # Bonus pour les captures de dames
+            score += 150  # Augmenter le score pour les captures (au lieu de 100)
+        
+        # Bonus pour les captures de dames
             milieu_x = (x_depart + x_arrivee) // 2
             milieu_y = (y_depart + y_arrivee) // 2
             pion_capture = self.plateau.get_pion(milieu_x, milieu_y)
             if pion_capture and pion_capture.est_dame:
-                score += 50  # Bonus pour capturer une dame
+                score += 100  # Augmenter le bonus pour capturer une dame (au lieu de 50)
         
-        # 2. Favoriser les mouvements vers la promotion
+        # Bonus pour les captures multiples
+            plateau_temp = self.plateau.copie_sans_surface()
+            plateau_temp.deplacer_pion(Mouvement(pion.position, mouvement))
+            pion_deplace = plateau_temp.get_pion(*mouvement)
+            if pion_deplace and plateau_temp.peut_encore_manger(pion_deplace):
+                score += 50  # Bonus pour permettre une capture multiple
+    
+    # 2. Favoriser les mouvements vers la promotion
         if not pion.est_dame:
             if (pion.couleur == "blanc" and y_arrivee < y_depart):
-                score += 5  # Favoriser l'avancée vers la promotion
-                # Bonus plus important quand on approche de la promotion
-                if y_arrivee == 0:  # Position de promotion pour les blancs
-                    score += 30
-                elif y_arrivee == 1:  # À une case de la promotion
-                    score += 15
+                score += 10  # Augmenter le bonus pour l'avancée (au lieu de 5)
+                if y_arrivee == 0:
+                    score += 50  # Augmenter le bonus pour la promotion (au lieu de 30)
+                elif y_arrivee == 1:
+                    score += 25  # Augmenter le bonus à une case de la promotion (au lieu de 15)
             elif (pion.couleur == "noir" and y_arrivee > y_depart):
-                score += 5  # Favoriser l'avancée vers la promotion
-                # Bonus plus important quand on approche de la promotion
-                if y_arrivee == 7:  # Position de promotion pour les noirs
-                    score += 30
-                elif y_arrivee == 6:  # À une case de la promotion
-                    score += 15
-        
-        # 3. AMÉLIORATION: Évaluation améliorée de la vulnérabilité (spécifique pour les dames)
+                score += 10
+                if y_arrivee == 7:
+                    score += 50
+                elif y_arrivee == 6:
+                    score += 25
+    
+    # 3. Évaluation de la vulnérabilité
         plateau_temp = self.plateau.copie_sans_surface()
         plateau_temp.deplacer_pion(Mouvement(pion.position, mouvement))
         pion_deplace = plateau_temp.get_pion(*mouvement)
-        
+    
         if pion_deplace:
-            # Vérifier si le pion peut être capturé après le mouvement
             couleur_adverse = "noir" if pion.couleur == "blanc" else "blanc"
             peut_etre_capture = False
-            
-            # Calcul amélioré pour la vulnérabilité
+        
             for y in range(8):
                 for x in range(8):
                     pion_adverse = plateau_temp.get_pion(x, y)
                     if pion_adverse and pion_adverse.couleur == couleur_adverse:
-                        # Obtenir les positions de capture possibles pour le pion adverse
                         captures = plateau_temp.cases_fin_manger(pion_adverse)
-                        
+                    
                         if pion_adverse.est_dame:
-                            # AMÉLIORATION: Vérification spécifique pour les dames adverses
-                            # Les dames peuvent capturer sur toute la diagonale
                             for capture in captures:
                                 capture_x, capture_y = capture
                                 dx = capture_x - x
                                 dy = capture_y - y
-                                
-                                # Vérifier toutes les positions intermédiaires
                                 distance = abs(dx)
                                 direction_x = 1 if dx > 0 else -1
                                 direction_y = 1 if dy > 0 else -1
-                                
                                 for i in range(1, distance):
                                     mid_x = x + (i * direction_x)
                                     mid_y = y + (i * direction_y)
                                     if (mid_x, mid_y) == mouvement:
                                         peut_etre_capture = True
-                                        # Si le pion déplacé est une dame, pénalité plus élevée
                                         if pion_deplace.est_dame:
-                                            score -= 60  # Pénalité plus sévère pour exposer une dame
+                                            score -= 100  # Pénalité plus sévère (au lieu de -60)
                                         else:
-                                            score -= 40  # Pénalité pour un pion normal
+                                            score -= 80   # Pénalité plus sévère (au lieu de -40)
                                         break
                         else:
-                            # Gestion standard pour les pions normaux
                             for capture in captures:
                                 capture_x, capture_y = capture
                                 dx = capture_x - x
                                 dy = capture_y - y
-                                
-                                # Position intermédiaire qui serait capturée
                                 mid_x = x + (dx // 2)
                                 mid_y = y + (dy // 2)
                                 if (mid_x, mid_y) == mouvement:
                                     peut_etre_capture = True
                                     if pion_deplace.est_dame:
-                                        score -= 60
+                                        score -= 100
                                     else:
-                                        score -= 40
+                                        score -= 80
                                     break
-                        
                         if peut_etre_capture:
                             break
                 if peut_etre_capture:
                     break
-            
-            # AMÉLIORATION: Vérifier les positions sécurisées (adossées au bord)
+        
+        # Bonus pour positions sécurisées
             if pion_deplace.est_dame:
                 if x_arrivee == 0 or x_arrivee == 7 or y_arrivee == 0 or y_arrivee == 7:
-                    score += 15  # Bonus pour une dame près du bord (plus difficile à capturer)
-        
-        # 4. AMÉLIORATION: Évaluation améliorée des dames
-        if pion.est_dame:
-            # Évaluation plus sophistiquée du positionnement des dames
-            
-            # Contrôle du centre avec valeur progressive
-            centre_x = abs(3.5 - x_arrivee)  # Distance au centre horizontal (3.5)
-            centre_y = abs(3.5 - y_arrivee)  # Distance au centre vertical (3.5)
-            distance_centre = (centre_x + centre_y) / 2.0
-            
-            # Plus la dame est proche du centre, meilleur est le score
-            score += max(0, 20 - (5 * distance_centre))
-            
-            # AMÉLIORATION: Évaluer la mobilité de la dame
-            mobilite = self._calculer_mobilite(plateau_temp, x_arrivee, y_arrivee)
-            score += mobilite * 3  # 3 points par case accessible
-            
-            # AMÉLIORATION: Évaluer le contrôle des diagonales
-            controle_diagonales = self._evaluer_controle_diagonales(plateau_temp, x_arrivee, y_arrivee)
-            score += controle_diagonales * 2
-        
-        return score
+                    score += 20  # Augmenter le bonus pour une dame près du bord (au lieu de 15)
     
+    # 4. Évaluation améliorée des dames
+        if pion.est_dame:
+            centre_x = abs(3.5 - x_arrivee)
+            centre_y = abs(3.5 - y_arrivee)
+            distance_centre = (centre_x + centre_y) / 2.0
+            score += max(0, 30 - (5 * distance_centre))  # Augmenter le bonus pour le centre (au lieu de 20)
+        
+        # Mobilité
+            mobilite = self._calculer_mobilite(plateau_temp, x_arrivee, y_arrivee)
+            score += mobilite * 5  # Augmenter le bonus par case accessible (au lieu de 3)
+        
+        # Contrôle des diagonales
+            controle_diagonales = self._evaluer_controle_diagonales(plateau_temp, x_arrivee, y_arrivee)
+            score += controle_diagonales * 4  # Augmenter le bonus pour le contrôle (au lieu de 2)
+    
+    # 5. Bonus pour les pions soutenus
+        if not pion.est_dame:
+            directions_soutien = [(1, 1), (-1, 1)] if pion.couleur == "noir" else [(1, -1), (-1, -1)]
+            for dx, dy in directions_soutien:
+                x_soutien, y_soutien = x_arrivee + dx, y_arrivee + dy
+                if 0 <= x_soutien < 8 and 0 <= y_soutien < 8:
+                    pion_soutien = plateau_temp.get_pion(x_soutien, y_soutien)
+                    if pion_soutien and pion_soutien.couleur == pion.couleur:
+                        score += 15  # Bonus pour un pion soutenu
+                        
+    # 6. Pénaliser si l'adversaire peut capturer ou avancer facilement
+        couleur_adverse = "noir" if pion.couleur == "blanc" else "blanc"
+        pions_adverses = [p for y in range(8) for x in range(8) if (p := plateau_temp.get_pion(x, y)) and p.couleur == couleur_adverse]
+        for pion_adverse in pions_adverses:
+            captures_adverses = plateau_temp.cases_fin_manger(pion_adverse)
+            if captures_adverses:
+                score -= 50  # Pénalité si l'adversaire peut capturer après ce mouvement
+                break
+    # Pénaliser si l'adversaire peut avancer vers la promotion
+            if not pion_adverse.est_dame:
+                mouvements_adverses = plateau_temp.mouvements_possibles(pion_adverse, forcer_manger=False)
+                for mvt in mouvements_adverses:
+                    x_mvt, y_mvt = mvt
+                    if (pion_adverse.couleur == "blanc" and y_mvt <= 1) or (pion_adverse.couleur == "noir" and y_mvt >= 6):
+                        score -= 30  # Pénalité si l'adversaire est proche de la promotion
+                        break
+                    
+                    return score
+
     def _calculer_mobilite(self, plateau, x, y):
         """
         NOUVELLE MÉTHODE: Calcule combien de cases la dame peut atteindre depuis sa position.

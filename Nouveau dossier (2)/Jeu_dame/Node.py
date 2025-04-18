@@ -33,4 +33,6 @@ class Node:
         if self.visites == 0:
             return float('inf')  # Prioriser les nœuds non visités
         parent_visites = self.parent.visites if self.parent else 1
-        return (self.victoires / self.visites) + c * (2 * math.log(parent_visites) / self.visites) ** 0.5
+        exploitation = self.victoires / self.visites
+        exploration = c * math.sqrt(math.log(parent_visites) / self.visites)
+        return exploitation + exploration

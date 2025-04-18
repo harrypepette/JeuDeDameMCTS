@@ -244,7 +244,7 @@ class Simulation:
     def _simulation(self, noeud):
         """Version optimisée avec profondeur limitée"""
         # Limiter la profondeur de simulation
-        max_depth = 20  # Maximum 20 coups par joueur
+        max_depth = 40  # Maximum 40 coups par joueur
         
         # Créer une instance à partir de l'état du plateau
         positions_initiales = []
