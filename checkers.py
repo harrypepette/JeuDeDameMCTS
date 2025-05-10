@@ -93,7 +93,6 @@ class Game:
         # Recherche des captures possibles
         capture_directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
         if piece.is_king:
-            # Pour les rois, on peut capturer à distance
             for dr, dc in capture_directions:
                 r, c = row + dr, col + dc
                 found_opponent = False
@@ -108,11 +107,10 @@ class Game:
                     elif found_opponent:
                         is_king_after = piece.is_king or (piece.color == "white" and r == 0) or (piece.color == "black" and r == BOARD_SIZE - 1)
                         captures.append((r, c, [opponent_pos], is_king_after))
-                        break  # On s'arrête après la première case vide après l'adversaire
+                        break
                     r += dr
                     c += dc
         else:
-            # Pour les pions, on ne peut capturer qu'à une distance de 2
             for dr, dc in capture_directions:
                 r, c = row + dr, col + dc
                 r2, c2 = row + 2 * dr, col + 2 * dc
@@ -126,6 +124,7 @@ class Game:
         # Recherche des captures multiples (rafle)
         if captures:
             all_captures = []
+            max_capture_count = 0
             for capture in captures:
                 r, c, captured, is_king = capture
                 temp_board = [row[:] for row in self.board]
@@ -134,13 +133,22 @@ class Game:
                 temp_board[r][c] = temp_piece
                 for cr, cc in captured:
                     temp_board[cr][cc] = None
-                # Utiliser un set pour éviter les doublons de positions capturées
                 new_captures = self.get_rafle_moves(temp_piece, r, c, set(tuple(pos) for pos in captured), temp_board)
                 all_captures.append(capture)
                 all_captures.extend(new_captures)
-            # Filtrer les captures pour éviter les doublons
-            captures = self._remove_duplicate_captures(all_captures)
-
+            
+            # Filtrer pour ne garder que les captures avec le maximum de pièces capturées
+            for capture in all_captures:
+                capture_count = len(capture[2])
+                if capture_count > max_capture_count:
+                    captures = [capture]
+                    max_capture_count = capture_count
+                elif capture_count == max_capture_count:
+                    captures.append(capture)
+            
+            # Éliminer les doublons
+            captures = self._remove_duplicate_captures(captures)
+        
         return moves, captures
 
     def _remove_duplicate_captures(self, captures):
@@ -160,9 +168,12 @@ class Game:
                 
         return unique_captures
 
-    def get_rafle_moves(self, piece, row, col, captured, board):
+    def get_rafle_moves(self, piece, row, col, captured, board, max_depth=20):
         """Trouve récursivement les captures multiples (rafle)
         Utilise un set pour captured pour éviter les doublons"""
+        if max_depth <= 0:  # Limiter la profondeur pour éviter les boucles infinies
+            return []
+        
         captures = []
         directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 
@@ -186,12 +197,11 @@ class Game:
                         temp_board[row][col] = None
                         temp_board[r][c] = temp_piece
                         temp_board[opponent_pos[0]][opponent_pos[1]] = None
-                        # Convertir set en liste pour compatibilité
                         captured_list = list(new_captured)
-                        sub_captures = self.get_rafle_moves(temp_piece, r, c, new_captured, temp_board)
+                        sub_captures = self.get_rafle_moves(temp_piece, r, c, new_captured, temp_board, max_depth - 1)
                         captures.append((r, c, captured_list, is_king_after))
                         captures.extend(sub_captures)
-                        break  # On s'arrête après la première case vide après l'adversaire
+                        break
                     r += dr
                     c += dc
         else:
@@ -209,14 +219,13 @@ class Game:
                     temp_board[row][col] = None
                     temp_board[r2][c2] = temp_piece
                     temp_board[r][c] = None
-                    # Convertir set en liste pour compatibilité
                     captured_list = list(new_captured)
-                    sub_captures = self.get_rafle_moves(temp_piece, r2, c2, new_captured, temp_board)
+                    sub_captures = self.get_rafle_moves(temp_piece, r2, c2, new_captured, temp_board, max_depth - 1)
                     captures.append((r2, c2, captured_list, is_king_after))
                     captures.extend(sub_captures)
 
         return captures
-
+    
     def get_all_captures(self):
         """Retourne toutes les captures possibles pour le joueur actuel,
         en gardant seulement celles qui capturent le maximum de pièces"""
@@ -230,11 +239,10 @@ class Game:
                     _, piece_captures = self.get_valid_moves(piece)
                     for capture in piece_captures:
                         capture_count = len(capture[2])
-                        if capture_count >= max_capture_count:
-                            # Si on trouve une capture avec plus de pièces, on réinitialise la liste
-                            if capture_count > max_capture_count:
-                                captures = []
-                                max_capture_count = capture_count
+                        if capture_count > max_capture_count:
+                            captures = [(piece.row, piece.col, capture[0], capture[1], capture[2], capture[3])]
+                            max_capture_count = capture_count
+                        elif capture_count == max_capture_count:
                             captures.append((piece.row, piece.col, capture[0], capture[1], capture[2], capture[3]))
         
         return captures
