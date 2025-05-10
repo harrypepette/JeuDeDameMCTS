@@ -110,7 +110,7 @@ class MCTS:
             self.simulation_time = 3.0
             self.exploration_weight = 1.414  # Valeur standard
         elif difficulty == "hard":
-            self.simulation_time = 5.0
+            self.simulation_time = 10.0
             self.exploration_weight = 1.0  # Plus d'exploitation des bons coups
         else:
             self.simulation_time = simulation_time
@@ -153,7 +153,7 @@ class MCTS:
                     self.backpropagate(node, result)
                     
                     iterations += 1
-                
+                    
                 if root.children:
                     return max(root.children, key=lambda c: c.visits).move
                 return captures[0]  # Par défaut, première capture si aucun enfant créé
@@ -457,7 +457,7 @@ class MCTS:
         return board_hash + state.turn[0]  # Ajouter le joueur actuel
     
     def evaluate_position(self, state):
-        """Évalue heuristiquement une position du jeu."""
+        """Évalue heuristiquement une position du jeu avec une stratégie avancée."""
         ai_color = self.ai_color
         opponent_color = "white" if ai_color == "black" else "black"
         
@@ -467,56 +467,145 @@ class MCTS:
         opp_men = 0
         opp_kings = 0
         
-        # Bonus pour les positions stratégiques
+        # Valeurs de base des pièces (pion = 1.0, dame = 3.0)
+        MAN_VALUE = 1.0
+        KING_VALUE = 3.5  # Légèrement augmenté pour valoriser davantage les dames
+        
+        # Bonus stratégiques
         ai_edge_bonus = 0
         opp_edge_bonus = 0
         ai_center_bonus = 0
         opp_center_bonus = 0
         ai_advancement = 0
         opp_advancement = 0
+        ai_diagonal_control = 0
+        opp_diagonal_control = 0
+        ai_promotion_threat = 0
+        opp_promotion_threat = 0
+        ai_defensive_formation = 0
+        opp_defensive_formation = 0
         
+        # Identification des diagonales principales
+        main_diagonals = [
+            [(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,9)],  # Diagonale principale 1
+            [(1,0), (2,1), (3,2), (4,3), (5,4), (6,5), (7,6), (8,7), (9,8)],  # Diagonale principale 2
+            [(0,3), (1,4), (2,5), (3,6), (4,7), (5,8), (6,9)],                # Diagonale secondaire 1
+            [(3,0), (4,1), (5,2), (6,3), (7,4), (8,5), (9,6)]                 # Diagonale secondaire 2
+        ]
+        
+        # Comptage des pièces sur les diagonales principales
+        diagonal_pieces = {
+            ai_color: [0, 0, 0, 0],
+            opponent_color: [0, 0, 0, 0]
+        }
+        
+        # Matrice de poids pour les positions
+        position_weights = [
+            [0, 3, 0, 3, 0, 3, 0, 3, 0, 3],  # Rangée 0 (promotion pour noir)
+            [3, 0, 2, 0, 2, 0, 2, 0, 2, 0],  # Rangée 1
+            [0, 2, 0, 1, 0, 1, 0, 1, 0, 2],  # Rangée 2
+            [2, 0, 1, 0, 2, 0, 2, 0, 1, 0],  # Rangée 3
+            [0, 2, 0, 2, 0, 3, 0, 2, 0, 2],  # Rangée 4 (centre)
+            [2, 0, 2, 0, 3, 0, 2, 0, 2, 0],  # Rangée 5 (centre)
+            [0, 1, 0, 2, 0, 2, 0, 1, 0, 2],  # Rangée 6
+            [2, 0, 1, 0, 1, 0, 1, 0, 2, 0],  # Rangée 7
+            [0, 2, 0, 2, 0, 2, 0, 2, 0, 3],  # Rangée 8
+            [3, 0, 3, 0, 3, 0, 3, 0, 3, 0]   # Rangée 9 (promotion pour blanc)
+        ]
+        
+        # Analyser le plateau
         for row in range(10):
             for col in range(10):
                 piece = state.board[row][col]
                 if piece:
+                    position_weight = position_weights[row][col] if (row + col) % 2 == 1 else 0
+                    
                     # Bonus pour les pièces sur les bords (plus difficiles à capturer)
                     is_edge = row == 0 or row == 9 or col == 0 or col == 9
                     
                     # Bonus pour les pièces au centre (contrôle le plateau)
                     is_center = 3 <= row <= 6 and 3 <= col <= 6
                     
+                    # Vérifier s'il s'agit d'une pièce sur les diagonales principales
+                    for d_idx, diagonal in enumerate(main_diagonals):
+                        if (row, col) in diagonal:
+                            if piece.color == ai_color:
+                                diagonal_pieces[ai_color][d_idx] += 1
+                            else:
+                                diagonal_pieces[opponent_color][d_idx] += 1
+                    
                     # Bonus pour l'avancement (pions qui avancent vers la promotion)
                     advancement_value = 0
                     if not piece.is_king:
                         if piece.color == "white":
-                            advancement_value = (10 - row) / 10  # Plus proche de la rangée 0
-                        else:
-                            advancement_value = row / 10  # Plus proche de la rangée 9
+                            # Distance de la promotion (plus proche de 0 = meilleur)
+                            advancement_value = (10 - row) / 9.0  # Normalisé entre 0 et 1
+                            # Bonus supplémentaire pour les pions proches de la promotion
+                            if row <= 2:  # À 2 cases ou moins de la promotion
+                                promotion_threat = (3 - row) * 0.3  # 0.3, 0.6 ou 0.9
+                        else:  # Noir
+                            advancement_value = row / 9.0  # Normalisé entre 0 et 1
+                            if row >= 7:  # À 2 cases ou moins de la promotion
+                                promotion_threat = (row - 6) * 0.3  # 0.3, 0.6 ou 0.9
                     
+                    # Formation défensive: pièces protégées par d'autres pièces
+                    defensive_bonus = 0
+                    if piece.color == ai_color:
+                        # Vérifier si la pièce a des alliés qui la protègent
+                        directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+                        for dr, dc in directions:
+                            r, c = row + dr, col + dc
+                            if 0 <= r < 10 and 0 <= c < 10 and state.board[r][c] and state.board[r][c].color == ai_color:
+                                defensive_bonus += 0.1
+                    else:
+                        directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+                        for dr, dc in directions:
+                            r, c = row + dr, col + dc
+                            if 0 <= r < 10 and 0 <= c < 10 and state.board[r][c] and state.board[r][c].color == opponent_color:
+                                defensive_bonus += 0.1
+                    
+                    # Attribution des valeurs selon la couleur
                     if piece.color == ai_color:
                         if piece.is_king:
                             ai_kings += 1
                         else:
                             ai_men += 1
                         
+                        # Ajouter les bonus stratégiques
                         if is_edge:
                             ai_edge_bonus += 0.2
                         if is_center:
-                            ai_center_bonus += 0.3
+                            ai_center_bonus += 0.3 * position_weight
                         
                         ai_advancement += advancement_value
+                        if 'promotion_threat' in locals() and piece.color == "white":
+                            ai_promotion_threat += promotion_threat
+                        ai_defensive_formation += defensive_bonus
                     else:
                         if piece.is_king:
                             opp_kings += 1
                         else:
                             opp_men += 1
                         
+                        # Ajouter les bonus stratégiques
                         if is_edge:
                             opp_edge_bonus += 0.2
                         if is_center:
-                            opp_center_bonus += 0.3
+                            opp_center_bonus += 0.3 * position_weight
                         
                         opp_advancement += advancement_value
+                        if 'promotion_threat' in locals() and piece.color == "black":
+                            opp_promotion_threat += promotion_threat
+                        opp_defensive_formation += defensive_bonus
+        
+        # Calculer le contrôle des diagonales stratégiques
+        for i in range(4):
+            ai_count = diagonal_pieces[ai_color][i]
+            opp_count = diagonal_pieces[opponent_color][i]
+            if ai_count > opp_count:
+                ai_diagonal_control += 0.3 * (ai_count - opp_count)
+            elif opp_count > ai_count:
+                opp_diagonal_control += 0.3 * (opp_count - ai_count)
         
         # Vérifier s'il reste des pièces
         if ai_men + ai_kings == 0:
@@ -524,21 +613,91 @@ class MCTS:
         if opp_men + opp_kings == 0:
             return 1.0  # L'IA a gagné
         
-        # Valeurs des pièces
-        ai_value = (ai_men * 1.0) + (ai_kings * 3.0) + ai_edge_bonus + ai_center_bonus + (ai_advancement * 0.5)
-        opp_value = (opp_men * 1.0) + (opp_kings * 3.0) + opp_edge_bonus + opp_center_bonus + (opp_advancement * 0.5)
+        # Évaluer les menaces de captures potentielles
+        ai_capture_threats = self.count_capture_threats(state, ai_color)
+        opp_capture_threats = self.count_capture_threats(state, opponent_color)
         
-        # Bonus pour les pièces mobiles et les menaces
+        # Bonus pour le nombre de cases sûres (non capturables)
+        ai_safe_pieces = self.count_safe_pieces(state, ai_color)
+        opp_safe_pieces = self.count_safe_pieces(state, opponent_color)
+        
+        # Valeurs totales avec poids
+        ai_value = (ai_men * MAN_VALUE) + (ai_kings * KING_VALUE) + \
+                ai_edge_bonus + ai_center_bonus + \
+                (ai_advancement * 0.6) + \
+                (ai_diagonal_control * 0.7) + \
+                (ai_promotion_threat * 0.8) + \
+                (ai_defensive_formation * 0.5) + \
+                (ai_capture_threats * 0.6) + \
+                (ai_safe_pieces * 0.4)
+                
+        opp_value = (opp_men * MAN_VALUE) + (opp_kings * KING_VALUE) + \
+                    opp_edge_bonus + opp_center_bonus + \
+                    (opp_advancement * 0.6) + \
+                    (opp_diagonal_control * 0.7) + \
+                    (opp_promotion_threat * 0.8) + \
+                    (opp_defensive_formation * 0.5) + \
+                    (opp_capture_threats * 0.6) + \
+                    (opp_safe_pieces * 0.4)
+        
+        # Bonus pour les pièces mobiles
         ai_mobility = self.count_mobility(state, ai_color)
         opp_mobility = self.count_mobility(state, opponent_color)
         
-        ai_value += ai_mobility * 0.1
-        opp_value += opp_mobility * 0.1
+        # Pondération différente pour fin de partie vs. début/milieu de partie
+        total_pieces = ai_men + ai_kings + opp_men + opp_kings
+        if total_pieces <= 10:  # Fin de partie
+            # En fin de partie, la mobilité et l'avantage matériel sont plus importants
+            ai_value += ai_mobility * 0.3
+            opp_value += opp_mobility * 0.3
+        else:  # Début/milieu de partie
+            # Au début, la position et le développement sont plus importants
+            ai_value += ai_mobility * 0.15
+            opp_value += opp_mobility * 0.15
         
         # Normaliser le score entre 0 et 1
         if ai_value + opp_value > 0:
             return ai_value / (ai_value + opp_value)
         return 0.5  # Position égale
+
+    def count_capture_threats(self, state, color):
+        """Compte le nombre de captures potentielles qu'un joueur peut faire."""
+        capture_threats = 0
+        for row in range(10):
+            for col in range(10):
+                piece = state.board[row][col]
+                if piece and piece.color == color:
+                    _, captures = state.get_valid_moves(piece)
+                    # Valoriser les captures multiples davantage
+                    for capture in captures:
+                        captured_count = len(capture[2])
+                        capture_threats += captured_count * 0.5  # Plus de poids aux captures multiples
+        return capture_threats
+
+    def count_safe_pieces(self, state, color):
+        """Compte le nombre de pièces qui ne peuvent pas être capturées."""
+        opponent_color = "white" if color == "black" else "black"
+        
+        # Identifier toutes les cases menacées par l'adversaire
+        threatened_positions = set()
+        for row in range(10):
+            for col in range(10):
+                piece = state.board[row][col]
+                if piece and piece.color == opponent_color:
+                    _, captures = state.get_valid_moves(piece)
+                    for capture in captures:
+                        for captured_pos in capture[2]:
+                            threatened_positions.add(captured_pos)
+        
+        # Compter les pièces sûres
+        safe_pieces = 0
+        for row in range(10):
+            for col in range(10):
+                piece = state.board[row][col]
+                if piece and piece.color == color and (row, col) not in threatened_positions:
+                    safe_pieces += 1
+        
+        return safe_pieces
     
     def count_mobility(self, state, color):
         """Compte le nombre de mouvements possibles pour une couleur."""
